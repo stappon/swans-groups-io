@@ -13,6 +13,7 @@ EMAIL_ENV_VAR = "GROUPSIO_EMAIL"
 PASSWORD_ENV_VAR = "GROUPSIO_PASSWORD"
 
 TOP_LEVEL_GROUP_NAME = "swansway"
+SKIP_CONFIGURE_SUBGROUPS = {"groupprocess"}
 
 ## General request helpers
 
@@ -47,12 +48,16 @@ def get(path_suffix, cookies, params):
 def pretty_print(resp):
     pprint(json.loads(resp.content))
 
+def get_input(prompt):
+    return input("{}: ".format(prompt)).lower()
+
 def yes_no_input(prompt):
-    return input("{} (y/n): ".format(prompt)).lower() == "y"
+    return get_input("{} (y/n)".format(prompt)) == "y"
 
 ## Subgroup-specific helpers
 
 def add_subgroup(name, desc, cookies, csrf_token):
+    print("Creating subgroup...")
     # Docs: https://groups.io/api#create_sub_group
     post("createsubgroup", cookies, {
         "group_name": TOP_LEVEL_GROUP_NAME,
@@ -67,6 +72,10 @@ def add_subgroup(name, desc, cookies, csrf_token):
     })
 
 def configure_subgroup(name, title, desc, cookies, csrf_token):
+    print("Configuring {} subgroup...".format(name))
+    if name in SKIP_CONFIGURE_SUBGROUPS:
+        print("Skipping group {}, it has custom settings".format(name))
+        return
     parent_scoped_name = "{}+{}".format(TOP_LEVEL_GROUP_NAME, name)
 
     # Docs: https://groups.io/api#update_group
@@ -81,6 +90,8 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
         # Privacy -> Visibility
         # This was probably already set during creation, but just in case:
         "privacy": "sub_group_privacy_limited_archives",
+        # Main group members should be able to see the members even if they aren't in the subgroup
+        "members_visible": "group_view_members_subs",
 
         # Spam Control -> Restricted Membership
         # Do members require approval before being allowed to join the group?
@@ -98,6 +109,9 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
         "reply_to": "group_reply_to_group_and_sender",
 
         # Features
+        # I'm still kinda unclear on the difference between member directory and member list, but
+        # I think this makes the directory viewable to members
+        "member_directory_access": "group_access_limited",
         # Disable a bunch of extra crap we don't need (makes UI less cluttered)
         # Things that could be disabled, but aren't: member_directory, polls, photos
         "calendar_access": "group_access_none",
@@ -123,6 +137,42 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
             "csrf": csrf_token
         })
 
+## Tasks
+def add_or_configure_single(cookies, csrf_token):
+    while True:
+        name = input('Subgroup short name (e.g. "knowledge"): ').strip().lower()
+        title = input('Subgroup title (e.g. "Institutional Knowledge Committee"): ')
+        desc = input("Subgroup description (leave blank to re-use title): ")
+        if len(desc) == 0:
+            desc = title
+        should_configure = True
+
+        try:
+            add_subgroup(name, desc, cookies, csrf_token)
+        except GroupsIoRequestError as e:
+            if e.type == "bad_request" and e.extra == "name already taken":
+                should_configure = yes_no_input("Group already exists. Do you want to re-configure it?")
+            else:
+                raise e
+
+        if should_configure:
+            configure_subgroup(name, title, desc, cookies, csrf_token)
+        print("Done! Add members at https://{}.groups.io/g/{}/subgroupdirectadd".format(TOP_LEVEL_GROUP_NAME, name))
+
+        if yes_no_input("Do you want to create another one?") is False:
+            break
+
+def configure_all(cookies, csrf_token):
+    # Docs: https://groups.io/api#get_sub_groups
+    subgroups_resp = post("getsubgroups", cookies, {
+        "group_name": TOP_LEVEL_GROUP_NAME,
+        "limit": 100  # I sure hope we never have more than this...
+    })
+    for sg in subgroups_resp.json()["data"]:
+        # Name is returned in parent-scoped form, e.g. swansway+technology
+        unscoped_name = sg["name"].split("+")[1]
+        configure_subgroup(unscoped_name, sg["title"], sg["desc"], cookies, csrf_token)
+
 ## Do the thing!
 
 if __name__ == "__main__":
@@ -136,25 +186,10 @@ if __name__ == "__main__":
     cookies = login_resp.cookies
     csrf_token = login_resp.json()["user"]["csrf_token"]
 
-    while True:
-        name = input('Subgroup short name (e.g. "knowledge"): ').strip().lower()
-        title = input('Subgroup title (e.g. "Institutional Knowledge Committee"): ')
-        desc = input("Subgroup description: ")
-        should_configure = True
-
-        print("Creating subgroup...")
-        try:
-            add_subgroup(name, desc, cookies, csrf_token)
-        except GroupsIoRequestError as e:
-            if e.type == "bad_request" and e.extra == "name already taken":
-                should_configure = yes_no_input("Group already exists. Do you want to re-configure it?")
-            else:
-                raise e
-
-        if should_configure:
-            print("Configuring subgroup...")
-            configure_subgroup(name, title, desc, cookies, csrf_token)
-        print("Done! Add members at https://{}.groups.io/g/{}/subgroupdirectadd".format(TOP_LEVEL_GROUP_NAME, name))
-
-        if yes_no_input("Do you want to create another one?") is False:
-            break
+    task = get_input("Do you want to add/configure a (s)ingle subgroup, or (a)ll subgroups?")
+    if task == "s":
+        add_or_configure_single(cookies, csrf_token)
+    elif task == "a":
+        configure_all(cookies, csrf_token)
+    else:
+        print("Invalid input, try again")
