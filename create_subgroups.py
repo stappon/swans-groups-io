@@ -70,7 +70,7 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
     parent_scoped_name = "{}+{}".format(TOP_LEVEL_GROUP_NAME, name)
 
     # Docs: https://groups.io/api#update_group
-    # This only updates things that don"t already default to the value we want.
+    # This only updates things that don't already default to the value we want.
     post("updategroup", cookies, {
         "group_name": parent_scoped_name,
         "csrf": csrf_token,
@@ -84,22 +84,22 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
 
         # Spam Control -> Restricted Membership
         # Do members require approval before being allowed to join the group?
-        # I don"t think we need this, since the sub-group is only visible to parent group members so
-        # non-residents can"t even attempt to join, and we want residents to be able to join at will
+        # I don't think we need this, since the sub-group is only visible to parent group members so
+        # non-residents can't even attempt to join, and we want residents to be able to join at will
         "restricted": "false",
 
         # Message Policies
         # Non-residents can post, but their posts will be moderated
         "allow_non_subs_to_post": "true",
-        # All Swan"s residents can post (unmoderated), even if they aren"t in this subgroup
+        # All Swan's residents can post (unmoderated), even if they aren't in this subgroup
         "allow_parent_subs_to_post": "true",
         # Force reply-all to avoid information silos, but also make sure non-list-members get replies
         # to their posts
         "reply_to": "group_reply_to_group_and_sender",
 
         # Features
-        # Disable a bunch of extra crap we don"t need (makes UI less cluttered)
-        # Things that could be disabled, but aren"t: member_directory, polls, photos
+        # Disable a bunch of extra crap we don't need (makes UI less cluttered)
+        # Things that could be disabled, but aren't: member_directory, polls, photos
         "calendar_access": "group_access_none",
         "files_access": "group_access_none",
         "database_access": "group_access_none",
