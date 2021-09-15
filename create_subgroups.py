@@ -106,7 +106,7 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
         "allow_parent_subs_to_post": "true",
         # Force reply-all to avoid information silos, but also make sure non-list-members get replies
         # to their posts
-        "reply_to": "group_reply_to_group_and_sender",
+        "reply_to": "group_reply_to_sender",
 
         # Features
         # I'm still kinda unclear on the difference between member directory and member list, but
