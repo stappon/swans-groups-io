@@ -104,8 +104,7 @@ def configure_subgroup(name, title, desc, cookies, csrf_token):
         "allow_non_subs_to_post": "true",
         # All Swan's residents can post (unmoderated), even if they aren't in this subgroup
         "allow_parent_subs_to_post": "true",
-        # Force reply-all to avoid information silos, but also make sure non-list-members get replies
-        # to their posts
+        # Default to reply to sender (rather than reply-all)
         "reply_to": "group_reply_to_sender",
 
         # Features
